@@ -1,0 +1,8 @@
+# ninja log v5
+4	394	1721323110621133029	CMakeFiles/OBJopenScript.dir/main.cpp.o	be4c3e8587e6338
+1	46	1721323255134100516	CMakeFiles/OpenGL_Engine.dir/src/glad.c.o	84b20f17d8675658
+386	417	1721321889385186536	OBJopenScript	5aef56ac9652d14a
+4	465	1721341913552264197	CMakeFiles/OpenGL_Engine.dir/main.cpp.o	e46bf69e5e4ef2fb
+4	50	1721323110278100494	CMakeFiles/OBJopenScript.dir/src/glad.c.o	4866f8d5a0b2e01c
+465	576	1721341913664138125	OpenGL_Engine.app/Contents/MacOS/OpenGL_Engine	1415289e75745d30
+394	424	1721323110652995375	OBJopenScript.app/Contents/MacOS/OBJopenScript	f4c34ee51b0ae348
