@@ -2,6 +2,9 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "Vectors.hpp"
+#include "MeshLoader.hpp"
+
 
 #include <iostream>
 #include <vector>

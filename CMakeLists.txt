@@ -19,6 +19,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     # macOS specific settings
     add_executable(OpenGL_Engine MACOSX_BUNDLE main.cpp src/glad.c
             src/MeshLoader.hpp
+            src/Vectors.hpp
     )
 
     # Set properties for the macOS bundle
@@ -33,6 +34,7 @@ else()
     # Non-macOS settings
     add_executable(OpenGL_Engine main.cpp src/glad.c
             src/MeshLoader.hpp
+            src/Vectors.hpp
     )
 endif()
 
