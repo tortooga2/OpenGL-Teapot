@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 #include "Vectors.hpp"
 
@@ -16,9 +17,35 @@
 using namespace std;
 
 
+vector<float> getVerteciesFromMesh(vector<Vertex> mesh){
+    std::vector<float> vertices;
+    for (int i = 0; i < mesh.size(); i++) {
+        vertices.push_back(mesh[i].Positions[0]);
+        vertices.push_back(mesh[i].Positions[1]);
+        vertices.push_back(mesh[i].Positions[2]);
+    };
+
+    return vertices;
+}
+
+vector<float> getNormalsFromMesh(vector<Vertex> mesh){
+    std::vector<float> vertices;
+    for (int i = 0; i < mesh.size(); i++) {
+        vertices.push_back(mesh[i].Normal[0]);
+        vertices.push_back(mesh[i].Normal[1]);
+        vertices.push_back(mesh[i].Normal[2]);
+    };
+
+    return vertices;
+}
+
 
 vector<vector<string>> convertFileToVector(string filename){
     fstream file (filename);
+
+    if(!file.is_open()){
+        throw std::runtime_error("Unable to Open File");
+    }
 
     string f;
     vector<vector<string>> digestedFile;
@@ -84,18 +111,49 @@ vector<Vertex> unpackOBJ(string filename){
         if (obj[i][0] == "f"){
 //
             for(int j = 1; j < obj[i].size(); j++){
-                vector<string> face = split(obj[i][j], '/');
-
-                int vIndex = stoi(face[0]) - 1;
-                int nIndex = stoi(face[2]) - 1;
-
-                Vertex v = {
-                        {vertices[vIndex].Position[0], vertices[vIndex].Position[1], vertices[vIndex].Position[2]},
-                        {normal[nIndex].Position[0], normal[nIndex].Position[1], normal[nIndex].Position[2]}
-                };
 
 
-                mesh.push_back( v );
+                    vector<string> face = split(obj[i][j], '/');
+
+                    bool hasV = face.size() >= 1;
+                    bool hasVT = face.size() >= 2;
+                    bool hasVN = face.size() >= 3;
+
+
+
+                    Vertex v;
+
+
+
+
+
+
+
+
+
+                    if(hasV && !hasVT && !hasVN){
+                        int vIndex = stoi(face[0]) - 1;
+
+                        //TODO: Calculate Normal for Vertices
+
+                        v = {
+                                {vertices[vIndex].Position[0], vertices[vIndex].Position[1], vertices[vIndex].Position[2]},
+
+                        };
+                    }
+
+                    if(hasV && hasVT && hasVN) {
+                        int vIndex = stoi(face[0]) - 1;
+                        int nIndex = stoi(face[2]) - 1;
+                        v = {
+                                {vertices[vIndex].Position[0], vertices[vIndex].Position[1], vertices[vIndex].Position[2]},
+                                {normal[nIndex].Position[0],   normal[nIndex].Position[1],   normal[nIndex].Position[2]}
+                        };
+                    };
+
+
+                    mesh.push_back( v );
+
 
             }
 
@@ -103,7 +161,8 @@ vector<Vertex> unpackOBJ(string filename){
 
 
 
-    }
+
+    };
 
 
 

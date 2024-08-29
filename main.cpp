@@ -2,8 +2,10 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+
 #include "Vectors.hpp"
 #include "MeshLoader.hpp"
+#include "math.h"
 
 
 #include <iostream>
@@ -14,38 +16,46 @@ void processInput(GLFWwindow *window);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_HEIGHT = 800;
 
 const char *vertexShaderSource = "#version 330 core\n"
                                  "layout (location = 0) in vec3 aPos;\n"
+                                 "layout (location = 1) in vec3 aNorm;\n"
                                  "uniform vec4 ourColor;\n"
-                                 // "uniform mat4 transform;\n"
+                                 //"uniform mat4 transform;\n"
                                  "out vec4 outColor;\n"
+                                 "out vec3 normal;\n"
                                  "void main()\n"
                                  "{\n"
                                  "   outColor = ourColor;\n"
+                                 "   normal = aNorm;\n"
                                  "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-
                                  "}\0";
 const char *fragmentShaderSource = "#version 330 core\n"
                                    "out vec4 FragColor;\n"
                                    "in vec4 geoColor;\n"
+                                   "in vec4 norm;\n"
                                    "void main()\n"
                                    "{\n"
-                                   "   FragColor = geoColor;\n"
+                                   "   vec3 lightDir = normalize(vec3(0.0, 0.2, -0.3));\n"
+                                   "   FragColor = geoColor * dot(vec3(norm.xyz), lightDir);\n"
                                    "}\n\0";
 
 const char *geomatryShaderSource = "#version 330 core\n"
                                    "layout (triangles) in;\n"
                                    "layout (triangle_strip, max_vertices = 3) out;\n"
-                                   "uniform mat4 transform;\n"
+                                   "uniform mat4 ModelMatrix;\n"
+                                   "uniform mat4 ProjectionMatrix;\n"
                                    "in vec4 outColor[];\n"
+                                   "in vec3 normal[];\n"
                                    "out vec4 geoColor;\n"
+                                   "out vec4 norm;\n"
                                    "void main()\n"
                                    "{\n"
                                    "   for(int i = 0; i < gl_in.length(); i++)\n"
                                    "   {\n"
-                                   "       gl_Position = transform * gl_in[i].gl_Position;\n"
+                                   "       gl_Position = ModelMatrix * gl_in[i].gl_Position;\n"
+                                   "       norm = transpose(inverse(ModelMatrix)) * vec4(normal[i], 1); \n"
                                    "       geoColor = outColor[i];\n"
                                    "       EmitVertex();\n"
                                    "   }\n"
@@ -57,8 +67,16 @@ float ty = 0.0f;
 float tz = 0.0f;
 
 float sX = 1.0f;
-float sY = 1.5f;
+float sY = 1.0f;
 float sZ = 1.0f;
+
+float rX = 0.0f;
+float rY =  0.0f;
+float rZ =  0.0f;
+
+
+
+
 
 
 
@@ -89,7 +107,7 @@ int main()
 
     glfwWindowHint(GLFW_DEPTH_BITS, 24);  // Request a depth buffer with 24 bits
 
-
+    //glfwSwapInterval(0); //V-SYNC DISABLE
     // glad: load all OpenGL function pointers
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -155,33 +173,46 @@ int main()
     glDeleteShader(fragmentShader);
     glDeleteShader(geomatryShader);
 
+
+
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
-    float vertices[] = {
-            -0.5f, -0.5f, 0.0f, // left
-            0.5f, -0.5f, 0.0f, // right
-            0.5f,  0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0,
-            0.5f, 0.5f, 0.0f,
-            -0.5f, 0.5f, 0.0f
 
-    };
 
-    unsigned int VBO, VAO;
+
+    vector<Vertex> mesh = unpackOBJ("teapot_smooth.obj");
+    vector<float> vertices = getVerteciesFromMesh(mesh);
+    vector<float> normals = getNormalsFromMesh(mesh);
+
+
+
+
+
+    unsigned int VBO, NBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+
+    glGenBuffers(1, &NBO);
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, NBO);
+    glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(float), normals.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-
     glBindVertexArray(0);
+
 
 
     // uncomment this call to draw in wireframe polygons.
@@ -192,7 +223,9 @@ int main()
 
 
 
-
+    // Timing data
+    double lastTime = glfwGetTime();
+    int frameCount = 0;
 
 
 
@@ -201,6 +234,22 @@ int main()
         // input
         // -----
         processInput(window);
+
+        // Measure speed
+        double currentTime = glfwGetTime();
+        double deltaTime = currentTime - lastTime;
+        frameCount++;
+
+        // Every second, update the window title with the FPS value
+        if (deltaTime >= 1.0) { // If last printf() was more than 1 sec ago
+            double fps = double(frameCount) / deltaTime;
+
+            std::string title = "FPS Example - FPS: " + std::to_string(fps);
+            glfwSetWindowTitle(window, title.c_str());
+
+            lastTime = currentTime;
+            frameCount = 0;
+        }
 
 
         // render
@@ -229,20 +278,49 @@ int main()
                                                   0.0f, 0.0f, 1.0f, 0.0f,
                                                   tx, ty, tz, 1.0f);
 
-        glm::mat4x4 scaleingMatrix = glm::mat4x4(sX, 0.0f, 0.0f, 0.0f,
+        glm::mat4x4 scalingMatrix = glm::mat4x4(sX, 0.0f, 0.0f, 0.0f,
                                                  0.0f, sY, 0.0f, 0.0f,
                                                  0.0f, 0.0f, sZ, 0.0f,
                                                  0.0f, 0.0f, 0.0f, 1.0f);
 
 
-        glm::mat4x4 transformMatrix = translateMatrix * scaleingMatrix;
 
-        GLint transformLocation = glGetUniformLocation(shaderProgram, "transform");
-        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, &transformMatrix[0][0]);
+        glm::mat4x4 rotateX = glm::mat4x4(1.0f, 0.0f, 0.0, 0.0f,
+                                          0.0f, cos(rX), sin(rX), 0.0f,
+                                          0.0f, -sin(rX), cos(rX), 0.0f,
+                                          0.0f, 0.0f, 0.0f, 1.0f);
 
 
-        glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-        glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(float));
+        glm::mat4x4 rotateY = glm::mat4x4(cos(rY), 0.0f, -sin(rY), 0.0f,
+                                          0.0f, 1.0f, 0.0f, 0.0f,
+                                          sin(rY), 0.0f, cos(rY), 0.0f,
+                                          0.0f, 0.0f, 0.0f, 1.0f);
+
+        glm::mat4x4 rotateZ = glm::mat4x4(cos(rZ), sin(rZ), 0.0f, 0.0f,
+                                          -sin(rZ), cos(rZ), 0.0f, 0.0f,
+                                         0.0f, 0.0f, 1.0f, 0.0f,
+                                          0.0f, 0.0f, 0.0f, 1.0f);
+
+
+        glm::mat4x4 projectionMatrix = glm::mat4x4(1.0f, 0.0f, 0.0f, 0.0f,
+                                                   0.0f, 1.0f, 0.0f, 0.0f,
+                                                   0.0f, 0.0f, 0.0f, 0.0f,
+                                                   0.0f, 0.0f, 0.0f, 1.0f);
+
+
+        glm::mat4x4 modelMatrix = translateMatrix * (rotateZ * rotateY * rotateX) * scalingMatrix;
+
+
+        GLint transformLocation = glGetUniformLocation(shaderProgram, "ModelMatrix");
+        glUniformMatrix4fv(transformLocation, 1, GL_FALSE, &modelMatrix[0][0]);
+
+        GLint projectionLocation = glGetUniformLocation(shaderProgram, "ProjectionMatrix");
+        glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
+
+
+        glBindVertexArray(VAO);// seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
+
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 3);
         // glBindVertexArray(0); // no need to unbind it every time
 
 
@@ -255,8 +333,12 @@ int main()
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
+
+
+
     glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1,  &VBO);
+    glDeleteBuffers(1, &NBO);
     glDeleteProgram(shaderProgram);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
@@ -282,16 +364,22 @@ void processInput(GLFWwindow *window)
         ty -= 0.002f;
 
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        sX += 0.002f;
+        rZ += 0.002f;
 
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        sX -= 0.002f;
+        rZ -= 0.002f;
 
     if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        sY += 0.002f;
+        rX += 0.002f;
 
     if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        sY -= 0.002f;
+        rX -= 0.002f;
+
+    if(glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        rY -= 0.002f;
+
+    if(glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        rY += 0.002f;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
